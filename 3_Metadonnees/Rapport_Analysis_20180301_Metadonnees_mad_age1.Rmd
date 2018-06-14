@@ -1,0 +1,45 @@
+---
+title: "Metadonnees"
+author: "sl"
+date: "01/03/2018"
+output: 
+  html_document:
+    toc : true
+    toc_float : true
+    toc_depth : 5
+    theme : cerulean
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+
+list.of.packages <- c( "gridExtra", "kableExtra", "ggrepel", "knitr", "DT", "readxl")
+new.packages <- list.of.packages[!( list.of.packages %in% installed.packages()[,"Package"])]
+if( length( new.packages)) install.packages( new.packages)
+library( kableExtra)
+library( gridExtra)
+library( ggplot2)
+library( knitr)
+library( ggrepel)
+library( reshape2)
+library( DT)
+library( readxl)
+
+#Cleaning 
+rm( list.of.packages, new.packages)
+```
+
+```{r loadChunks, echo = FALSE}
+read_chunk("~/workspace/AnalysisSteph/3_Metadonnees/Input/Sheets_mad_age1.R")
+```
+
+## MAD Age 1 
+
+```{r sheets, echo = FALSE, warning=FALSE, results="asis"}
+<<sheets>>  
+```
+
+

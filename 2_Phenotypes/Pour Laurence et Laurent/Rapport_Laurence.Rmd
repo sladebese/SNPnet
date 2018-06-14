@@ -1,0 +1,64 @@
+---
+title: "Rapport_Laurence_Lionel"
+author: "sl"
+date: "18/05/2018"
+output: 
+  html_document:
+    toc : true
+    theme : paper
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+list.of.packages <- c( "ggplot2", "DT", "plotly", "knitr")
+new.packages <- list.of.packages[!( list.of.packages %in% installed.packages()[,"Package"])]
+if( length( new.packages)) install.packages( new.packages)
+library( ggplot2)
+library( DT)
+library( plotly)
+library( knitr)
+
+
+DATA_analysis <- read.table( "~/workspace/AnalysisSteph/2_Phenotypes/Output/04_DATA_analysis.txt", sep =" ")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Pour Laurence et Laurent/fractional.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Pour Laurence et Laurent/battements.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Pour Laurence et Laurent/battements_ggplot1.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Pour Laurence et Laurent/battements_ggplot4.R")
+```
+
+## Fractional shortening
+
+Voici la liste des individus classés par valeur de Fractional Shortening croissant. Un histogramme permet de mieux visualiser les valeurs abbérantes de Fractional Shortening.
+
+```{r fractional, echo = FALSE, warning= F, message= F}
+<<fractional>>
+```
+
+
+## Nombre de battements 
+
+### 1 Semaine
+```{r battements, echo = FALSE, warning= F, message= F}
+<<battements>>
+```
+
+
+```{r battements2, echo = FALSE, warning= F, message= F, fig.height= 11}
+<<battements2>>
+```
+/!\ Certains extrêmes ne sont pas présents sous forme de points sur le graphique précedént.
+
+```{r battements3, echo = FALSE, warning= F, message= F,results='asis'}
+<<battements3>>
+```
+
+
+```{r battements4, echo = FALSE, warning= F, message= F, fig.height= 8}
+<<battements4>>
+```
+/!\ Certains extrêmes ne sont pas présents sous forme de points sur le graphique précedént.
+
+```{r battements5, echo = FALSE, warning= F, message= F}
+<<battements5>>
+```

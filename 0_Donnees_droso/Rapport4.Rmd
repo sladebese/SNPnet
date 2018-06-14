@@ -1,0 +1,549 @@
+---
+title: "SnpNet"
+author: "sl"
+date: "15/01/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Mise en place du working directory sur l'ordinateur TAGC
+dirMain <- path.expand("~")
+setwd( dirMain)  
+dirOutput <- file.path( dirMain, "workspace/AnalysisSteph")
+
+# Chargement des librairies necessaires dans les commandes a venir
+install.packages("gridExtra")
+library( gridExtra)
+library( ggplot2)
+library(knitr)
+
+read_chunk( path = file.path( dirOutput, "source_load.R"))
+read_chunk( path = file.path( dirOutput, "contents_data.R"))
+```
+
+#Premiere approche du contenu des fichiers 
+
+```{r sources_load, echo=FALSE}
+# Chargement des donnees
+# dataPheno <- read.csv( file.path( dirMain,"Documents/Donnees_droso/phenotype_data.csv"), sep ="\t")
+# dataIndividual <- read.csv( file.path( dirMain,"Documents/Donnees_droso/individual.csv"), sep ="\t")
+# dataPhenoNoout <- read.csv( file.path( dirMain,"Documents/Donnees_droso/phenotype_data.csv_control_nooutliers.csv"), sep ="\t")
+# dataDateCorrection <- read.csv( file.path( dirMain,"Documents/Donnees_droso/phenotype_data.csv_date_correction.csv"), sep ="\t")
+# dataStrain <- read.csv( file.path( dirMain,"Documents/Donnees_droso/strain.csv"), sep ="\t")
+```
+
+
+
+```{r datastrain, echo = FALSE}
+<<datastrain>>
+# On fait un table et un as.vector pour avoir le nombre de lignees 
+# tabStrainControl <- table( dataStrain$control[ dataStrain$control==1])
+# nbStrainControl <- as.vector( tabStrainControl)
+# tabStrainMutant <- table( dataStrain$control[ dataStrain$control==0])
+# nbStrainMutant <- as.vector( tabStrainMutant)
+# cat( "Number of studied strains :", length( dataStrain$control), 
+#      "\nNumber of control strains :", nbStrainControl,
+#      "\nNumber of dgrp strains :", nbStrainMutant)
+```
+
+
+
+
+```{r individual, echo = FALSE}
+<<dataIndividual>>
+#   
+# # Pour calculer le nombre moyen de drosophiles par lignees, on fait un table mis sous forme de data.frame
+# tabIndivStrain <- data.frame( table( dataIndividual$strain_number))
+# mgStrainIndiv <- merge.data.frame( dataStrain, tabIndivStrain, by.x="number", by.y = "Var1")
+# 
+# # On souhaite enlever les donnees controles et inadequates par filtre
+# # Nom inadequat
+# strainNoControl <- mgStrainIndiv[ mgStrainIndiv$control == 0,]
+# pattern <- "^dgrp[0-9]{2,3}"
+# strainUncorrect <- strainNoControl[- grep( pattern = pattern, x = strainNoControl$number),]
+# kable( strainUncorrect, caption = "Details of uncorrect strains")
+# 
+# # Lignees controles
+# strainControl <- mgStrainIndiv[ mgStrainIndiv$control == 1,]
+# kable( strainControl, caption = "Details of control strains")
+# 
+# # Lignees dgrp
+# strainDgrp <- strainNoControl[grep( pattern = pattern, x = strainNoControl$number),]
+# sumFreqDgrp  <- sum( strainDgrp$Freq)
+# meanFreqDgrp <- mean( strainDgrp$Freq)
+# 
+# #Tableau contenant le nombre de drosophiles par lignée et par age
+# tabFreqStrainAge <- rbind.data.frame( 
+#   data.frame(table( dataIndividual[ dataIndividual$age == 1,]$strain_number),"age" =1), 
+#   data.frame(table( dataIndividual[ dataIndividual$age == 4,]$strain_number),"age" = 4))
+# colnames( tabFreqStrainAge) <- c( "strain", "freq", "age")
+# tabFreqStrainAge <- with( tabFreqStrainAge, tabFreqStrainAge[order(strain),])
+# 
+# # Apercu des donnees de individuals.csv
+# cat( "\nNumber of dgrp drosophiles  :", sumFreqDgrp)
+# cat( "\nNumber total of drosophiles :", nrow( dataIndividual), 
+#      "\nData known about each drosophila:", colnames(dataIndividual))
+# kable( tabFreqStrainAge, caption = "Number of drosophiles 1-week old or 4-week old")       
+```
+
+
+```{r plotdgrp, echo= FALSE}
+<<plotDgrpAge>>
+# # Barplot pour voir la répartition des valeurs
+# plotDgrpAge <- ggplot( tabFreqStrainAge, aes( fill=as.factor(age), y=freq, x=strain)) +
+#   geom_bar( position=position_dodge(), stat="identity") +
+#   coord_cartesian( ylim = c( 0, 25)) +
+#   xlab( "Strains") +
+#   ylab( "Frequency") +
+#   ggtitle( "Number of drosophila by strain and age") +
+#   theme( plot.title = element_text( hjust = 0.5)) +
+#   theme( axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+#   geom_hline( aes( yintercept = 12), lty = 2)
+# plotDgrpAge   
+# cat( "\nAverage number of drosophiles by dgrp strain :", round( meanFreqDgrp, digits = 0))
+```
+
+
+
+```{r doublon, echo = FALSE}
+<<doublon>>
+# #Nombre de droso pour chaque trio strain-age-date
+# dataIndividualNoControl <- dataIndividual[ dataIndividual$strain_number != as.character(strainControl$number), ]
+# dateStrainAge <- dataIndividualNoControl [ ,c( "strain_number", "age", "date")]
+# dateStrainAge$paste <- paste( dateStrainAge$strain_number, dateStrainAge$age, dateStrainAge$date)
+# mgDateStrainAge <- merge( y= data.frame( table( dateStrainAge$paste)), x = dateStrainAge, 
+#                           by.y = "Var1", by.x = "paste")
+# mgDateStrainAge <- mgDateStrainAge[, -1]
+# mgDateStrainAge <- unique( mgDateStrainAge)
+# print( kable( mgDateStrainAge[ mgDateStrainAge$Freq >12,], caption ="**Experience with same date-age-strain and number of drosophilia over 12**"))
+# 
+# #Donnees dupliquees pour chaque age 
+# mgDateStrainAge1 <- mgDateStrainAge[ mgDateStrainAge$age == 1,]
+# tabStrainAge1 <- data.frame( table( mgDateStrainAge1$strain_number))
+# tabStrainAge1 <- tabStrainAge1[ tabStrainAge1$Freq > 1,]
+# colnames( tabStrainAge1) <- c( "strain_number", "Nb_of_Duplicates") 
+# 
+# mgDateStrainAge4 <- mgDateStrainAge[ mgDateStrainAge$age == 4,]
+# tabStrainAge4 <- data.frame( table( mgDateStrainAge4$strain_number))
+# tabStrainAge4 <- tabStrainAge4[ tabStrainAge4$Freq > 1,]
+# colnames( tabStrainAge4) <- c( "strain_number", "Nb_of_Duplicates") 
+# 
+# #On récupère le nom des lignées dupliquées 
+# dupMgStrainAge <- mgDateStrainAge[ duplicated( mgDateStrainAge[ ,c("strain_number","age")]),]
+# namesDuplicatedStrains1 <- gsub("(\\w+).*", "\\1", dupMgStrainAge[ dupMgStrainAge$age ==1, ]$strain_number)
+# namesDuplicatedStrains4 <- gsub("(\\w+).*", "\\1", dupMgStrainAge[ dupMgStrainAge$age ==4, ]$strain_number)
+# 
+# #Tableau récapitulatif du nombre de drosphiles dans les lignées répliquées pour l'age 1
+# dataStrainDuplicated1 <- data.frame( c())
+# for (i in 1:length(namesDuplicatedStrains1)) {
+#       dup <- mgDateStrainAge[ grep( namesDuplicatedStrains1[i], mgDateStrainAge$strain_number),]
+#       dataStrainDuplicated1 <- rbind.data.frame( dataStrainDuplicated1, dup) 
+# }
+# dataStrainDuplicated1 <- dataStrainDuplicated1[ dataStrainDuplicated1$age == 1,]
+# 
+# #Tableau récapitulatif du nombre de drosphiles dans les lignées répliquées pour l'age 4
+# dataStrainDuplicated4 <- data.frame( c())
+# for (i in 1:length(namesDuplicatedStrains4)) {
+#       dup <- mgDateStrainAge[ grep( namesDuplicatedStrains4[i], mgDateStrainAge$strain_number),]
+#       dataStrainDuplicated4 <- rbind.data.frame( dataStrainDuplicated4, dup) 
+# }
+# dataStrainDuplicated4 <- dataStrainDuplicated4[ dataStrainDuplicated4$age == 4,]
+# 
+# # Affichage des résultats
+# kable( tabStrainAge1, caption = "**Duplicated strains for age 1**")
+# kable( dataStrainDuplicated1, caption = "**Details for duplicated strains for age 1**" )
+# kable( tabStrainAge4, caption = "**Duplicated strains for age **")
+# kable( dataStrainDuplicated4, caption = "**Details for duplicated strains for age 4**" )
+
+<<plotStrainDuplicated>>
+```
+
+
+```{r chronologie, echo = FALSE}
+<<plotChronology>>
+# #Merge two tables to get american dates, which are easier to classify
+# dataIndividualYeardate <- merge.data.frame( x = dataIndividual, y = dataDateCorrection[ ,c( "date", "yeardate")], 
+#                           by.x = "date", by.y = "date", all = FALSE)
+# 
+# #Reclassify strains levels by first date of manipulation
+# datatest <- dataIndividualYeardate
+# datatestorder <- unlist( sapply( sort( unique( datatest$yeardate)), function(x){
+#   return( datatest[ which( datatest$yeardate == x), "strain_number"] )
+# }))                   
+# datatestdup <- datatestorder[ !duplicated( datatestorder)] 
+# #datatestdup2 <- c( datatestdup[ which( datatestdup == "w1118")], datatestdup[ -which( datatestdup == "w1118")])
+# datatest$strain_number = factor( datatest$strain_number, levels = datatestdup)
+# dataIndividualYeardatebckup = dataIndividualYeardate
+# dataIndividualYeardate = datatest
+# 
+# plotChronology <- ggplot( dataIndividualYeardate) +
+#                   geom_point( aes( x = as.factor(yeardate), y = strain_number, 
+#                                    shape= as.factor(age), col= as.factor(age))) +
+#                   xlab( "Dates") +
+#                   ylab( "Strains") +
+#                   ggtitle( "Chronology of experiments") +
+#                   theme( plot.title = element_text( hjust = 0.5),
+#                          axis.text.x = element_text(angle = 90, hjust = 1, size = 7),
+#                          axis.text.y = element_text(hjust = 1, size = 7),
+#                          legend.position = "none")
+# plotChronology
+```
+
+
+## Fichiers phenotypes
+```{r pheno, echo= FALSE}
+<<dataPheno>>
+
+# # Apercu des donnees de phenotype_data.csv
+# head( dataPheno, 4)
+# cat( "\nTotal number of collected data :",  nrow( dataPheno))
+# dataPhenoEtudies <- as.vector( unique( dataPheno$phenotype_name))
+# cat( "\n", length( dataPhenoEtudies), "phenotypes are studied here :")
+# dataPhenoEtudies
+
+# Nombre de données phenotypiques pour chacun des ages
+# tablePhenoAge1 <- as.data.frame( table( dataPheno[ dataPheno$age == 1,]$phenotype_name))
+# tablePhenoAge1$age <- as.factor(rep(1,nrow(tablePhenoAge1)))
+# tablePhenoAge4 <- as.data.frame( table( dataPheno[ dataPheno$age == 4,]$phenotype_name))
+# tablePhenoAge4$age <- as.factor(rep(4,nrow(tablePhenoAge4)))
+# bdTabPhenoAge <- rbind.data.frame( tablePhenoAge1, tablePhenoAge4)
+# bdTabPhenoAge <- with( bdTabPhenoAge, bdTabPhenoAge[order(Var1),])
+# colnames( bdTabPhenoAge) <- c( "phenotype", "Freq", "age")
+# cat( "\nNumber of collected data by phenotype and age :")
+# plotbdTabPhenoAge  <- ggplot( bdTabPhenoAge, aes( fill=age, y=Freq, x=phenotype)) +
+#                       geom_bar( position="dodge", stat="identity", width=0.8)+
+#                       xlab( "Phenotypes") +
+#                       ylab( "Frequency") +
+#                       ggtitle( "Number of drosophila by phenotype and age") +
+#                       theme( plot.title = element_text( hjust = 0.5),
+#                       axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+# plotbdTabPhenoAge 
+
+<<plotbdTabPhenoAge>>
+```
+
+
+```{r noout, echo=FALSE}
+<<dataPhenoNoOut>>
+```
+
+
+```{r datecorrection, echo=FALSE}
+<<dataPhenoDateCorrection>>
+# # Merge of the new table with dates corrections
+# mgPhenoIndivid <- merge( x = dataPheno, y = dataIndividual, by.x = c( "individual_name", "age"), 
+# by.y = c( "name", "age"), all.x = TRUE)
+# dataPhenoDate <- merge( mgPhenoIndivid, dataDateCorrection, by.x = c( "date", "phenotype_name"), by.y = c( "date", "phenotype_name"), all = FALSE)
+# # Apply the date correction
+# dataPhenoDate$valueCorrected <- dataPhenoDate$value - dataPhenoDate$value.correction
+# 
+# # Resume donnees phenotype_data.csv_date_correction.csv
+# cat( "\nNumber of corrected data :", nrow( dataPhenoDate))
+```
+
+
+# Exploration des donnees 
+## Differences in phenotypic data brought by corrections
+
+```{r phenocompare, echo = FALSE}
+<<diffSources>>
+# Les donnees avec le phenotypes HRM sont extraites des 3 fichiers pheno
+# phenoHeartRateMean <- dataPheno[ dataPheno$phenotype_name == "Heartrate_Mean",] 
+# phenoHRMNoOut <- dataPhenoNoout[ dataPhenoNoout$phenotype_name == "Heartrate_Mean",] 
+# phenoHRMCorrection <- dataPhenoDate[ dataPhenoDate$phenotype_name == "Heartrate_Mean",] 
+# # On cree un tableau contenant la valeur phenotypique de HRM et le fichier source de la valeur
+# # pour les donnees des 3 fichiers en fusionnant des vecteurs
+# HRMData <- data.frame( rep( "phenotype", times=nrow( phenoHeartRateMean)), phenoHeartRateMean$value)
+# colnames( HRMData) <-c ( "source","valeur")
+# HRMNOData <- data.frame( rep( "no_outliers", times=nrow( phenoHRMNoOut)), phenoHRMNoOut$value)
+# colnames( HRMNOData) <- c( "source","valeur")
+# HRMDCData <- data.frame( rep( "date_correction", times=nrow( phenoHRMCorrection)), phenoHRMCorrection$valueCorrected)
+# colnames( HRMDCData) <- c( "source","valeur")
+# bindHRM <- rbind( HRMData, HRMNOData, HRMDCData)
+# # Graphique boxplot des donnees HRM en fonction du fichier source
+# plotHRMCorrectionCompar <- ggplot( bindHRM) +
+#                            geom_boxplot( aes( x=source, y=valeur), col=c( "red","black"," darkgreen")) +
+#                            xlab( "Source") +
+#                            ylab( "Heartrate mean") +
+#                            ggtitle( "Comparison of phenotypic HRM values with corrections") +
+#                            theme( plot.title = element_text( hjust = 0.5)) 
+# #                     geom_label( aes( x=source, y=quantile( bindHRM[ bindHRM$valeur,]), label = quantile),
+# #                                 nudge_x = 0.2,col = c( "red","black"," darkgreen")) ## marche pas encore
+# plotHRMCorrectionCompar
+# 
+# # Les valeurs summary sont mises sous format dataframe pour les donnees phenotypiques des 3 tableaux
+# comparaisonHRMData <- data.frame( cbind( summary( phenoHeartRateMean$value), 
+#                                       summary( phenoHRMNoOut$value), 
+#                                       summary( phenoHRMCorrection$valueCorrected)))
+# colnames( comparaisonHRMData)<-c( "pheno", "nooutliers", "datecorrection")
+# kable( comparaisonHRMData)
+```
+
+
+```{r dataframe, echo = FALSE}
+#Files to be merged 
+dataPhenoNoout <- read.csv( file.path( dirMain,"Documents/Donnees_droso/phenotype_data.csv_control_nooutliers.csv"), sep ="\t")
+dataIndividual <- read.csv( file.path( dirMain,"Documents/Donnees_droso/individual.csv"), sep ="\t")
+dataDateCorrection <- read.csv( file.path( dirMain,"Documents/Donnees_droso/phenotype_data.csv_date_correction.csv"), sep ="\t")
+dataStrain <- read.csv( file.path( dirMain,"Documents/Donnees_droso/strain.csv"), sep ="\t")
+#Merge of pheno et individual data
+phenoIndiv  <- merge.data.frame( x = dataPhenoNoout, y = dataIndividual, 
+                                  by.x = c( "individual_name", "age"), by.y = c( "name", "age"), all = TRUE)
+cat( sum( !complete.cases( phenoIndiv)), "rows deleted because of missing values")
+phenoIndiv <- na.omit( phenoIndiv)
+phenoIndiv$id.x <- NULL
+phenoIndiv$id.y <- NULL
+#Merge new data frame with Date correction 
+phenoIndivDate <- merge( phenoIndiv, dataDateCorrection, by.x = c( "age", "date", "phenotype_name"), 
+                        by.y = c( "age", "date", "phenotype_name"), all = TRUE)
+cat( sum( !complete.cases( phenoIndivDate)), "rows deleted because of missing values")
+phenoIndivDate <- na.omit( phenoIndivDate)
+phenoIndivDate$id.x <- NULL
+phenoIndivDate$id.y <- NULL
+#Merge with strain data
+phenoIndivDateStrain <- merge( phenoIndivDate, dataStrain, by.x = "strain_number", by.y = "number", all = TRUE)
+cat( sum( !complete.cases( phenoIndivDateStrain)), "rows deleted because of missing values")
+phenoIndivDateStrain <- na.omit( phenoIndivDateStrain)
+phenoIndivDateStrain$id.x <- NULL
+phenoIndivDateStrain$id.y <- NULL
+phenoIndivDateStrain <- phenoIndivDateStrain[ ,c("individual_name", "age", "sex", "strain_number", "control", "user", "date",
+                                                 "yeardate", "phenotype_name", "value", "value.correction")]
+phenoIndivDateStrain$value.corrected <- phenoIndivDateStrain$value - phenoIndivDateStrain$value.correction
+DATA <- phenoIndivDateStrain
+```
+
+
+
+```{r phenocompare2, echo= FALSE}
+#Data for HRM 
+DATA_HRM <- DATA[ DATA$phenotype_name == "Heartrate_Mean",]
+tabDATA_HRM <- data.frame( table( DATA_HRM$strain_number, DATA_HRM$age))
+nameToRemoveHRM <- unique( tabDATA_HRM[ tabDATA_HRM$Freq <8,]$Var1)
+idxToRemove <- unlist( sapply( nameToRemoveHRM, function(x){
+  return( which (DATA_HRM$strain_number == x))
+}))
+DATA_HRM <- DATA_HRM[ -idxToRemove, ]
+
+#Plot freq without low-number strains
+tabDATA_HRM <- data.frame( table( DATA_HRM$strain_number, DATA_HRM$age))
+colnames(tabDATA_HRM) <- c( "strain_number", "age", "freq")
+plotStrainHRM  <- ggplot( tabDATA_HRM, aes( x= strain_number, y= freq, fill = as.factor(age))) +
+                  geom_bar( position="dodge", stat="identity", width=0.8)+
+                  coord_cartesian( ylim = c(0,25)) +
+                  xlab( "Strains") +
+                  ylab( "Frequency") +
+                  ggtitle( "Number of drosophila by strain and age") +
+                  theme( plot.title = element_text( hjust = 0.5),
+                        axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+                  geom_hline( aes( yintercept = 8), lty = 2)
+plotStrainHRM   #####PB Montre valeur enlevée
+
+
+# Graphique boxplot des donnees HRM a 1 et a 4 semaines
+plotHRM14 <- ggplot( DATA_HRM) + 
+             geom_boxplot( aes( x = as.factor(age), y = value), fill = c("orange","red")) +
+             xlab( "Age") +
+             ylab( "Heartrate mean") +
+             ggtitle( "Comparison of heartrate mean between ages") +
+             theme( plot.title = element_text( hjust = 0.5)) 
+plotHRM14
+
+#Graphique boxplot des HRM en fonction des lignees
+lenStrainHRM <- length( unique( DATA_HRM$strain_number))
+plotHRMpheno <- ggplot( DATA_HRM) + 
+                geom_boxplot( aes( x = reorder(x =strain_number, X = value, FUN =  median), y = value), 
+                              fill = rainbow(perteMerge)) +
+                theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+                xlab( "Strains") +
+                ylab( "Heartrate mean") +
+                ggtitle( "Comparison of heartrate mean within strains") +
+                theme( plot.title = element_text( hjust = 0.5)) 
+plotHRMpheno 
+
+
+#Same graph but for age 1 and 4
+plotHRM14 <- ggplot( DATA_HRM) + 
+             geom_boxplot( aes( x = as.factor(age), y = value, fill= as.factor(age))) +
+             facet_wrap( ~ reorder(x = strain_number, X = value, FUN =  median), nrow = 2) +
+             xlab( "Ages") +
+             ylab( "Heartrate mean") +
+             ggtitle( "Comparison of heartrate mean within ages") +
+             theme( plot.title = element_text( hjust = 0.5)) 
+plotHRM14
+
+#Reorder strain by difference between median
+dfmedian <- sapply( unique( DATA_HRM$strain_number), function(x){
+  median1 <- median(DATA_HRM[ (DATA_HRM$strain_number == x) & (DATA_HRM$age == 1),]$value)
+  median4 <- median(DATA_HRM[ (DATA_HRM$strain_number == x) & (DATA_HRM$age == 4),]$value)
+  return( c( "strain_number" = as.character(x), "median1" = median1, "median4" = median4))
+})
+dfmedian <- data.frame( t( dfmedian))
+dfmedian$median1 <- as.numeric( as.character( dfmedian$median1))
+dfmedian$median4 <- as.numeric( as.character( dfmedian$median4))
+dfmedian$diff <- dfmedian$median4 - dfmedian$median1
+
+strainorder <- dfmedian[order(dfmedian$diff),]$strain_number
+DATA_HRM_bis <- DATA_HRM
+DATA_HRM_bis$strain_number = factor( DATA_HRM_bis$strain_number, levels = strainorder)
+
+plotHRM14 <- ggplot( DATA_HRM_bis) + 
+             geom_boxplot( aes( x = as.factor(age), y = value, fill= as.factor(age))) +
+             facet_wrap( ~ strain_number, nrow = 2) +
+             xlab( "Ages") +
+             ylab( "Heartrate mean") +
+             ggtitle( "Comparison of heartrate mean within ages") +
+             theme( plot.title = element_text( hjust = 0.5)) 
+plotHRM14
+
+#Same but order by IQR
+plotHRMpheno <- ggplot( DATA_HRM) + 
+                geom_boxplot( aes( x = reorder(x =strain_number, X = value, FUN = IQR), y = sqrt(value)), 
+                              fill = rainbow(perteMerge)) +
+                theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+                xlab( "Strains") +
+                ylab( "Heartrate mean") +
+                ggtitle( "Comparison of heartrate mean within strains") +
+                theme( plot.title = element_text( hjust = 0.5)) 
+plotHRMpheno
+
+plotHRM14IQR <- ggplot( DATA_HRM) + 
+             geom_boxplot( aes( x = as.factor(age), y = value, fill= as.factor(age))) +
+             facet_wrap( ~ reorder(x = strain_number, X = value, FUN =  IQR), nrow = 2) +
+             xlab( "Ages") +
+             ylab( "Heartrate mean") +
+             ggtitle( "Comparison of heartrate mean within ages") +
+             theme( plot.title = element_text( hjust = 0.5)) 
+plotHRM14IQR
+
+#Look at the difference for interquantiles
+dfIQR <- sapply( unique( DATA_HRM$strain_number), function(x){
+  IQR1 <- IQR(DATA_HRM[ (DATA_HRM$strain_number == x) & (DATA_HRM$age == 1),]$value)
+  IQR4 <- IQR(DATA_HRM[ (DATA_HRM$strain_number == x) & (DATA_HRM$age == 4),]$value)
+  return( c( "strain_number" = as.character(x), "IQR1" = IQR1, "IQR4" = IQR4))
+})
+dfIQR <- data.frame( t( dfIQR))
+dfIQR$IQR1 <- as.numeric(dfIQR$IQR1)
+dfIQR$IQR4 <- as.numeric(dfIQR$IQR4)
+dfIQR$diff <- dfIQR$IQR4 - dfIQR$IQR1
+dfIQR[["sign"]] <- ifelse(dfIQR[["diff"]] >= 0, "positive", "negative")
+dfIQR$quot <- dfIQR$IQR4 / dfIQR$IQR1
+dfIQR[["direction"]] <- ifelse(dfIQR[["quot"]] >= 1, "sup", "inf")
+#Show the difference 
+plotdfIQRdiff <- ggplot(dfIQR) + geom_point(aes( x = reorder(strain_number, diff), y = diff, col = sign))+
+                 scale_fill_manual(values = c("positive" = "darkblue", "negative" = "red"))
+
+plotdfIQRquot <- ggplot(dfIQR) + geom_point(aes( x = reorder(strain_number, quot), y = quot, col= direction)) + 
+                 scale_fill_manual(values = c( "sup" = "red", "inf" = "blue"))
+
+```
+
+
+
+## Differences phenotypiques entre 1 et 4 semaines 
+```{r pheno14, echo= FALSE}
+# A partir de phenoHeartRateMean, un tableau resumant les donnees a 1 et 4 semaines est cree
+phenoHeartRateMean <- dataPheno[ dataPheno$phenotype_name == "Heartrate_Mean",]
+phenoHRM1 <- phenoHeartRateMean[ phenoHeartRateMean$age == 1,]
+phenoHRM4 <- phenoHeartRateMean[ phenoHeartRateMean$age == 4,]
+dfComparisonHRM14 <- data.frame( cbind( "age1" = summary( phenoHRM1$value), 
+                                        "age4" = summary( phenoHRM4$value)))
+kable( dfComparisonHRM14)
+
+```
+
+We notice a general tendency wich is the heartrate mean to get lower with age, a test of Welch can be done to verify it
+```{r test stat, echo = FALSE}
+# Variances des donnees egales ? shapiro quand même av ou test de levene homeosedacite => welch 
+#fisher.test( HRM1$value, HRM4$value,)
+#Test de Student pour voir si la difference est significative 
+#t.test( x = HRM1$value, y = HRM4$value)
+```
+
+
+
+```{r}
+# Mieux visualiser le comportement des donnees
+# Les donnees sont separees en deux tableaux pour calculer la mediane selon les ages et les lignees
+# Puis tout est reuni en un seul plot
+phenoIndivHRM  <- merge.data.frame( x = phenoHeartRateMean, y = dataIndividual, 
+                                  by.x = c( "individual_name", "age"), by.y = c( "name", "age"))
+phenoIndivHRM1 <- phenoIndivHRM[ phenoIndivHRM$age == 1,]
+phenoIndivHRM4 <- phenoIndivHRM[ phenoIndivHRM$age == 4,]
+tab1 <- tapply( phenoIndivHRM1$value, as.factor( phenoIndivHRM1$strain_number), median)
+tab4 <- tapply( phenoIndivHRM4$value, as.factor( phenoIndivHRM4$strain_number), median)
+cbind14 <- cbind.data.frame( as.factor( rownames( tab1)), as.numeric( tab1), as.numeric( tab4))
+colnames( cbind14) <- c("strain", "value1", "value4")
+cbind14narm <- na.omit(cbind14)
+cbind14narm$diff <- abs( cbind14narm$value1 - cbind14narm$value4)
+# dotplot pour chaque lignee avec la valeur mediane pour age = 1 et age = 4
+# Plot des vieux en fonction des jeunes avec lignees reordonnees
+plotHRMstrain14 <- ggplot( cbind14narm) +
+                   geom_point( aes(x = reorder(strain, value1), y = value1), col = "red") +
+                   geom_point( aes(x = strain, y = value4), col = "blue") +
+                   xlab( "Lignees") +
+                   ylab( "Valeur mediane du rythme cardiaque") +
+                   ggtitle( "Repartition de la mediane des \n 4 en fonction des 1") +
+                   theme( plot.title = element_text( hjust = 0.5), 
+                          axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+
+#plot des jeunes en fonction des vieux avec lignees reordonnees
+plotHRMstrain41 <- ggplot( cbind14narm) +
+                   geom_point( aes( x = reorder( strain, value4), y = value4), col = "blue") +
+                   geom_point( aes( x = strain, y = value1), col = "red") +
+                   xlab( "Lignees") +
+                   ylab( "Valeur mediane du rythme cardiaque") +
+                   ggtitle( "Repartition de la mediane des \n 1 en fonction des 4") +
+                   theme( plot.title = element_text( hjust = 0.5),
+                          axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+#Affichage des 2 plots cote a cote
+grid.arrange( plotHRMstrain14, plotHRMstrain41, ncol = 2)
+
+plotHRMstrain14abs <- ggplot( cbind14narm) +
+                   geom_point( aes(x = reorder(strain, diff), y = value1), col = "red") +
+                   geom_point( aes(x = strain, y = value4), col = "blue") +
+                   xlab( "Lignees") +
+                   ylab( "Valeur mediane du rythme cardiaque") +
+                   ggtitle( "Repartition de la mediane des \n 4 en fonction des 1") +
+                   theme( plot.title = element_text( hjust = 0.5), 
+                          axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+
+#Nombre de lignees pour lesquelles mediane1 < mediane4
+paste( "Nombre de lignees avec valeur manquante pour 1 ou 4 semaines :", nrow(cbind14)-nrow(cbind14narm))
+paste( "Nombre de lignees ou la valeur mediane du rythme cardiaque est plus elevee a 4 semaines :", 
+sum( cbind14narm$value1 < cbind14narm$value4), ", ie", 
+round(( sum( cbind14narm$value1 < cbind14narm$value4)) / ncol( cbind14narm), digits = 2), " %")
+```
+
+```{r regression, echo = FALSE}
+# regression lineaire : correlation entre mediane des HRM des age 1 et 4 ?
+plotregHRM <- ggplot( cbind14narm) +
+geom_point( aes( x = value1, y = value4) ) +
+geom_smooth( aes( x = value1, y = value4), method = lm, col = "darkred") +
+xlab( "Valeur mediane HRM age 1") +
+ylab( "Valeur mediane HRM age 4") +
+ggtitle( "Correlation de la mediane HRM des \n ages 4 en fonction des ages 1 par lignees") +
+theme( plot.title = element_text( hjust = 0.5))
+plotregHRM #modele de regression lineaire
+```
+
+```{r save, echo=FALSE}
+# Sauvegarder le working directory pour eviter de tout executer a nouveau
+save.image( sprintf( "%s/working.Rdata", dirOutput))
+```
+
+
+
+
+
+
+
+# Questions :
+# Afficher les prints pour plus de clarte ?
+# 74 : afficher une matrice sur plusieurs colonnes
+# 136-137 : labeliser les quantiles d un boxplot
+# 143 pertemerge me parait bizarre
+# 165 enlever la premiere colonne avec chiffres automatiques ?
+# 176 Test de fisher comment ? 

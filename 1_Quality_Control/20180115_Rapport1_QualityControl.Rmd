@@ -1,0 +1,367 @@
+---
+title: "SnpNet"
+author: "sl"
+date: "15/01/2018"
+output:
+  html_document:
+    toc : true
+    toc_float : true
+    toc_depth : 3
+    theme : paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Mise en place du working directory sur l'ordinateur TAGC
+dirMain <- path.expand("~")
+setwd( dirMain)  
+dirOutput <- file.path( dirMain, "workspace/AnalysisSteph")
+
+# Chargement des librairies necessaires dans les commandes a venir
+list.of.packages <- c( "gridExtra", "kableExtra")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library( kableExtra)
+library( gridExtra)
+library( ggplot2)
+library( knitr)
+```
+
+```{r sources_load, echo=FALSE}
+# Chargement des donnees
+dataPheno <- read.csv( file.path( dirOutput,"0_Donnees_droso/phenotype_data.csv"), sep ="\t")
+dataIndividual <- read.csv( file.path( dirOutput,"0_Donnees_droso/individual.csv"), sep ="\t")
+dataPhenoNoout <- read.csv( file.path( dirOutput,"0_Donnees_droso/phenotype_data.csv_control_nooutliers.csv"), sep ="\t")
+dataDateCorrection <- read.csv( file.path( dirOutput,"0_Donnees_droso/phenotype_data.csv_date_correction.csv"), sep ="\t")
+dataStrain <- read.csv( file.path( dirOutput,"0_Donnees_droso/strain.csv"), sep ="\t")
+```
+
+#Contents 
+
+
+We have five basic files: 
+- strain.csv : contains used lines and indicates whether they are controlled or not.  
+- individual.csv : contains the information of each drosophiles: name, id, date, age, sex, user, strain_number.  
+- phenotype_data.csv : contains the phenotypic data collected through film analysis of dissected hearts.  
+- phenotype_data.csv_control_nooutliers.csv : contains the same phenotypic data as phenotype_data. csv, but samples considered as outliers have been removed.  
+- phenotype_data.csv_date_correction.csv : contains the daily corrections to be applied to phenotypic data.  
+
+##Subjects of the study
+
+The experiment was conducted on drosophiles, all females.
+
+```{r datastrain, echo = FALSE}
+# On fait un table et un as.vector pour avoir le nombre de lignees 
+tabStrainControl <- table( dataStrain$control[ dataStrain$control==1])
+nbStrainControl <- as.vector( tabStrainControl)
+tabStrainMutant <- table( dataStrain$control[ dataStrain$control==0])
+nbStrainMutant <- as.vector( tabStrainMutant)
+cat( "Number of studied strains :", length( dataStrain$control), 
+     "\nNumber of control strains :", nbStrainControl,
+     "\nNumber of dgrp strains :", nbStrainMutant)
+```
+
+Apparently, 169 strains have been studied. One was a control, the w1118 strain. All others strains came from DGRP lines. A first quality control is done by check the pattern of the name. The second will be more visual by taking a look at the distribution of samples for every strain and age. 
+
+```{r individual, echo = FALSE}
+# Pour calculer le nombre moyen de drosophiles par lignees, on fait un table mis sous forme de data.frame
+tabIndivStrain <- data.frame( table( dataIndividual$strain_number))
+mgStrainIndiv <- merge.data.frame( dataStrain, tabIndivStrain, by.x="number", by.y = "Var1")
+
+# On souhaite enlever les donnees controles et inadequates par filtre
+# Nom inadequat
+strainNoControl <- mgStrainIndiv[ mgStrainIndiv$control == 0,]
+pattern <- "^dgrp[0-9]{2,3}"
+strainUncorrect <- strainNoControl[- grep( pattern = pattern, x = strainNoControl$number),]
+kable( x = strainUncorrect , caption = "Details of uncorrect strains")
+
+# Lignees controles
+strainControl <- mgStrainIndiv[ mgStrainIndiv$control == 1,]
+kable( strainControl, caption = "Details of control strains")
+
+# Lignees dgrp
+strainDgrp <- strainNoControl[grep( pattern = pattern, x = strainNoControl$number),]
+sumFreqDgrp  <- sum( strainDgrp$Freq)
+meanFreqDgrp <- mean( strainDgrp$Freq)
+
+#Tableau contenant le nombre de drosophiles par lignée et par age
+tabFreqStrainAge <- rbind.data.frame( 
+    data.frame(table( dataIndividual[ dataIndividual$age == 1,]$strain_number),"age" =1), 
+    data.frame(table( dataIndividual[ dataIndividual$age == 4,]$strain_number),"age" = 4))
+colnames( tabFreqStrainAge) <- c( "strain", "freq", "age")
+tabFreqStrainAge <- with( tabFreqStrainAge, tabFreqStrainAge[order(strain),])
+
+# Apercu des donnees de individuals.csv
+cat( "Number of dgrp drosophiles  :", sumFreqDgrp,
+     "\nAverage number of drosophiles by dgrp strain :", round( meanFreqDgrp, digits = 0),
+     "\nTotal number of drosophiles", nrow( dataIndividual))
+```
+
+```{r plotdgrp, echo= FALSE, fig.width= 10, fig.height=6}
+# Barplot pour voir la répartition des valeurs
+plotDgrpAge <- ggplot( tabFreqStrainAge, aes( fill=as.factor(age), y=freq, x=strain)) +
+               geom_bar( position=position_dodge(), stat="identity") +
+               coord_cartesian( ylim = c( 0, 25)) +
+               xlab( "Strains") +
+               ylab( "Frequency") +
+               ggtitle( "Number of drosophila by strain and age") +
+               theme( plot.title = element_text( hjust = 0.5)) +
+               theme( axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+               geom_hline( aes( yintercept = 12), lty = 2)
+plotDgrpAge   
+```
+
+The uncorrect strain, dgrpxxx, seems to concern a 1-week old drosophila. It could be a drosophila lost from one of the actually 167 DGRP strains studied here. It's not found in the phenotype_data file, so it won't be an issue later.
+
+Because we expected 12 drosophiles per age and strain at most, the question of duplicates emerged. It can provide information on the most easily maintained lines or on the variation of phenotypic data according to dates of breeding and dissection. A first step was to see the lines that had a larger number of drosophils without duplicates, then to look for real duplicates.
+
+```{r doublon, echo = FALSE}
+#Nombre de droso pour chaque trio strain-age-date
+dataIndividualNoControl <- dataIndividual[ dataIndividual$strain_number != as.character(strainControl$number), ]
+dateStrainAge <- dataIndividualNoControl [ ,c( "strain_number", "age", "date")]
+dateStrainAge$paste <- paste( dateStrainAge$strain_number, dateStrainAge$age, dateStrainAge$date)
+mgDateStrainAge <- merge( y= data.frame( table( dateStrainAge$paste)), x = dateStrainAge, 
+                          by.y = "Var1", by.x = "paste")
+mgDateStrainAge <- mgDateStrainAge[, -1]
+mgDateStrainAge <- unique( mgDateStrainAge)
+kable( mgDateStrainAge[ mgDateStrainAge$Freq >12,], format = "html", align = NULL,
+       caption ="**Experience with same date-age-strain and number of drosophilia over 12**") %>%
+      kable_styling(full_width = F)
+
+#Donnees dupliquees pour chaque age 
+mgDateStrainAge1 <- mgDateStrainAge[ mgDateStrainAge$age == 1,]
+tabStrainAge1 <- data.frame( table( mgDateStrainAge1$strain_number))
+tabStrainAge1 <- tabStrainAge1[ tabStrainAge1$Freq > 1,]
+colnames( tabStrainAge1) <- c( "strain_number", "Nb_of_Duplicates") 
+
+mgDateStrainAge4 <- mgDateStrainAge[ mgDateStrainAge$age == 4,]
+tabStrainAge4 <- data.frame( table( mgDateStrainAge4$strain_number))
+tabStrainAge4 <- tabStrainAge4[ tabStrainAge4$Freq > 1,]
+colnames( tabStrainAge4) <- c( "strain_number", "Nb_of_Duplicates") 
+
+#On récupère le nom des lignées dupliquées 
+dupMgStrainAge <- mgDateStrainAge[ duplicated( mgDateStrainAge[ ,c("strain_number","age")]),]
+namesDuplicatedStrains1 <- gsub("(\\w+).*", "\\1", dupMgStrainAge[ dupMgStrainAge$age ==1, ]$strain_number)
+namesDuplicatedStrains4 <- gsub("(\\w+).*", "\\1", dupMgStrainAge[ dupMgStrainAge$age ==4, ]$strain_number)
+
+#Tableau récapitulatif du nombre de drosphiles dans les lignées répliquées pour l'age 1
+dataStrainDuplicated1 <- data.frame( c())
+for (i in 1:length(namesDuplicatedStrains1)) {
+      dup <- mgDateStrainAge[ grep( namesDuplicatedStrains1[i], mgDateStrainAge$strain_number),]
+      dataStrainDuplicated1 <- rbind.data.frame( dataStrainDuplicated1, dup) 
+}
+dataStrainDuplicated1 <- dataStrainDuplicated1[ dataStrainDuplicated1$age == 1,]
+
+#Tableau récapitulatif du nombre de drosphiles dans les lignées répliquées pour l'age 4
+dataStrainDuplicated4 <- data.frame( c())
+for (i in 1:length(namesDuplicatedStrains4)) {
+      dup <- mgDateStrainAge[ grep( namesDuplicatedStrains4[i], mgDateStrainAge$strain_number),]
+      dataStrainDuplicated4 <- rbind.data.frame( dataStrainDuplicated4, dup) 
+}
+dataStrainDuplicated4 <- dataStrainDuplicated4[ dataStrainDuplicated4$age == 4,]
+
+# Affichage des résultats
+kable( tabStrainAge1, format = "html", align = NULL, caption = "**Duplicated strains for age 1**") %>%
+  kable_styling(full_width = F, position = "left")
+kable( tabStrainAge4, format = "html", align = NULL, caption = "**Duplicated strains for age 4**") %>%
+  kable_styling(full_width = F, position = "right")
+```
+
+<br>
+7 experiments had implicated more than 12 drosophiles, and 16 strains had been duplicated, which coincides well with what we can see on the previous graphic.
+
+Caring about the clarity of the document, detail of the duplicate lines, i. e. the dates and number of drosophiles for each manipulation, are not displayed here but have been calculated.
+
+##Collected data
+
+Now that we know what samples we are working on, we will look at the data that has been collected for the study. 
+
+```{r pheno, echo= FALSE}
+# Apercu des donnees de phenotype_data.csv
+cat( "Total number of collected data :",  nrow( dataPheno))
+dataPhenoEtudies <- as.vector( unique( dataPheno$phenotype_name))
+cat( length( dataPhenoEtudies), "phenotypes are studied here :")
+cat( dataPhenoEtudies, sep = "\n")
+
+```
+
+34 phenotypes are collected by used methods. Many of them are probably correlated, which is one of the analysis we will have to do later (or maybe was already done). Here is the graphique of data collected for each age and phenotype.
+
+```{r phenoage, echo = FALSE}
+# Nombre de donnees phenotypiques disponibles pour chaque age : 
+dataPhenoUnique <- unique( dataPheno[ , c("individual_name", "age")])
+nbData14 <- table( dataPhenoUnique$age)
+nbData14 <- as.data.frame(nbData14)
+colnames( nbData14) <- c("Age","Nb_Collected_Individuals")
+#kable( nbData14, format = "html", align = NULL) ## Comment enlever la ligne automatique ?    
+kable(nbData14, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+
+# Nombre de données phenotypiques pour chacun des ages
+tablePhenoAge1 <- as.data.frame( table( dataPheno[ dataPheno$age == 1,]$phenotype_name))
+tablePhenoAge1$age <- as.factor(rep(1,nrow(tablePhenoAge1)))
+tablePhenoAge4 <- as.data.frame( table( dataPheno[ dataPheno$age == 4,]$phenotype_name))
+tablePhenoAge4$age <- as.factor(rep(4,nrow(tablePhenoAge4)))
+bdTabPhenoAge <- rbind.data.frame( tablePhenoAge1, tablePhenoAge4)
+bdTabPhenoAge <- with( bdTabPhenoAge, bdTabPhenoAge[order(Var1),])
+colnames( bdTabPhenoAge) <- c( "phenotype", "Freq", "age")
+plotbdTabPhenoAge  <- ggplot( bdTabPhenoAge, aes( fill=age, y=Freq, x=phenotype)) +
+                      geom_bar( position="dodge", stat="identity", width=0.8)+
+                      xlab( "Phenotypes") +
+                      ylab( "Frequency") +
+                      ggtitle( "Number of drosophila by phenotype and age") +
+                      theme( plot.title = element_text( hjust = 0.5),
+                      axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+                      geom_hline( aes( yintercept = nbData14[1,2]), lty = 2, col = "red") +
+                      geom_hline( aes( yintercept = nbData14[2,2]), lty = 2, col = "blue")
+plotbdTabPhenoAge 
+```
+
+Three phenotypes quite related have a low number of data : DI% , Long DI %, Long SI %. Apparently, the low number of data collected is due to the method and movie. Total_DI and Total_SI have more data but still less than all others phenotypes.
+
+# First approach of phenotypic data
+
+To start exploring phenotypic data, we will take a look at the first phenotype present in the file phenotype_data.csv : HeartRateMean.
+
+## Differences in phenotypic data brought by corrections
+
+The first work was to calculate the phenotypic values with the daily correction. This correction was calculated only for flies one week old. Based on the dates and phenotype names, the daily correction could be applied to almost all 147285 data collected, regardless of age. The data boxplot with the daily correction for age 1 and age 4 gives us an overview of the final result but is not to be taken as such. In an overall way, we don't know yet if we should take account of this correction because the control wasn't done in a statistically good way, due to lack of time and hands.
+
+Summary tables of data from the different sources are displayed just below boxplots.
+
+```{r phenocompare, echo = FALSE}
+# Merge of the new table with dates corrections
+mgPhenoIndivid <- merge( x = dataPheno, y = dataIndividual, by.x = c( "individual_name", "age"), 
+by.y = c( "name", "age"), all = FALSE)
+dataPhenoDate <- merge( mgPhenoIndivid, dataDateCorrection, by.x = c( "date", "phenotype_name"), by.y = c( "date", "phenotype_name"), all = FALSE)
+# Apply the date correction
+dataPhenoDate$valueCorrected <- dataPhenoDate$value - dataPhenoDate$value.correction
+
+# Resume donnees phenotype_data.csv_date_correction.csv
+cat( "Number of data corrected with daily effect:", nrow( unique( dataPhenoDate[, c("individual_name", "phenotype_name")])))
+
+# Les donnees avec le phenotypes HRM sont extraites des 3 fichiers pheno
+phenoHeartRateMean <- dataPheno[ dataPheno$phenotype_name == "Heartrate_Mean",] 
+phenoHRMNoOut <- dataPhenoNoout[ dataPhenoNoout$phenotype_name == "Heartrate_Mean",] 
+phenoHRMCorrection <- dataPhenoDate[ dataPhenoDate$phenotype_name == "Heartrate_Mean",] 
+# On cree un tableau contenant la valeur phenotypique de HRM et le fichier source de la valeur
+# pour les donnees des 3 fichiers en fusionnant des vecteurs
+HRMData <- data.frame( rep( "phenotype", times=nrow( phenoHeartRateMean)), phenoHeartRateMean$value)
+colnames( HRMData) <-c ( "source","valeur")
+HRMNOData <- data.frame( rep( "no_outliers", times=nrow( phenoHRMNoOut)), phenoHRMNoOut$value)
+colnames( HRMNOData) <- c( "source","valeur")
+HRMDCData <- data.frame( rep( "date_correction", times=nrow( phenoHRMCorrection)), phenoHRMCorrection$valueCorrected)
+colnames( HRMDCData) <- c( "source","valeur")
+bindHRM <- rbind( HRMData, HRMNOData, HRMDCData)
+# Graphique boxplot des donnees HRM en fonction du fichier source
+plotHRMCorrectionCompar <- ggplot( bindHRM) +
+                           geom_boxplot( aes( x=source, y=valeur), col=c( "red","black"," darkgreen")) +
+                           xlab( "Source") +
+                           ylab( "Heartrate mean") +
+                           ggtitle( "Comparison of phenotypic HRM values with corrections") +
+                           theme( plot.title = element_text( hjust = 0.5)) 
+#                     geom_label( aes( x=source, y=quantile( bindHRM[ bindHRM$valeur,]), label = quantile),
+#                                 nudge_x = 0.2,col = c( "red","black"," darkgreen")) ## marche pas encore
+plotHRMCorrectionCompar
+
+# Les valeurs summary sont mises sous format dataframe pour les donnees phenotypiques des 3 tableaux
+comparaisonHRMData <- data.frame( cbind( summary( phenoHeartRateMean$value), 
+                                      summary( phenoHRMNoOut$value), 
+                                      summary( phenoHRMCorrection$valueCorrected)))
+colnames( comparaisonHRMData)<-c( "pheno", "nooutliers", "datecorrection")
+kable( comparaisonHRMData)
+```
+
+As expected, three boxplots and their values are similar. We will continue only with no corrected values for the next descriptives statistiques.
+
+## Variabily between strains 
+
+```{r phenocompare2, echo = FALSE, fig.width= 8, fig.height= 6}
+#Donnees HRM en fonction des lignees, merge des donnees phenotypiques et individuelles 
+phenoIndivHRM  <- merge.data.frame( x = phenoHeartRateMean, y = dataIndividual, 
+                                  by.x = c( "individual_name", "age"), by.y = c( "name", "age"))
+perteMerge <- length( unique( phenoIndivHRM$strain_number)) ## != head( mgPhenoIndivid$strain_number)
+#Graphique boxplot des HRM en fonction des lignees
+plotHRMpheno <- ggplot( phenoIndivHRM) + 
+                geom_boxplot( aes( x = strain_number, y = value), fill = rainbow(perteMerge)) +
+                theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+                xlab( "Strains") +
+                ylab( "Heartrate mean") +
+                ggtitle( "Comparison of heartrate mean within strains") +
+                theme( plot.title = element_text( hjust = 0.5)) 
+plotHRMpheno 
+```
+
+This graphic shows us the variability between all strains for the HeartRate Mean phenotype, which is quite important. Same variations are observed with corrected data. The strain with the more different variability is not the control w1118 but one of the dgrp lines. 
+
+## Differences between ages
+
+One of the study's problems being to get a better understand of cardiac aging mechanism, isogenetic drosophiles were studied at 1 and 4 weeks. 
+
+```{r pheno14, echo= FALSE}
+# Nombre de donnees phenotypiques disponibles pour chaque age : 
+nbData14HRM <- table( phenoHeartRateMean$age)
+nbData14HRM <- as.data.frame(nbData14HRM)
+colnames( nbData14HRM) <- c("Age","Nb donnees")
+kable(nbData14HRM, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F, position = "left")## Comment enlever la ligne automatique ?
+
+# Graphique boxplot des donnees HRM a 1 et a 4 semaines
+plotHRM14 <- ggplot( phenoHeartRateMean) + 
+             geom_boxplot( aes( x = as.factor(age), y = value), col = c("orange","red")) +
+             xlab( "Age") +
+             ylab( "HeartRate Mean Values") +
+             ggtitle( "Comparison of heartrate mean between ages") +
+             theme( plot.title = element_text( hjust = 0.5)) 
+plotHRM14
+
+# A partir de phenoHeartRateMean, un tableau resumant les donnees a 1 et 4 semaines est cree
+phenoHeartRateMean <- dataPheno[ dataPheno$phenotype_name == "Heartrate_Mean",]
+phenoHRM1 <- phenoHeartRateMean[ phenoHeartRateMean$age == 1,]
+phenoHRM4 <- phenoHeartRateMean[ phenoHeartRateMean$age == 4,]
+dfComparisonHRM14 <- data.frame( cbind( "age1" = summary( phenoHRM1$value), 
+                                        "age4" = summary( phenoHRM4$value)))
+kable( dfComparisonHRM14, align = NULL) 
+```
+
+We notice a general tendency wich is the heartrate mean to get lower with age. It may be verify by a test of Welch after a levene test to know about the homosedacity of our data. A linear study would be a good idea too. 
+
+This tendency can be observed in an other way : median of values for HeartRate Mean are plotted in ascending order of the median of 4-week olds. 
+
+```{r mediane, echo = FALSE}
+# Mieux visualiser le comportement des donnees
+# Les donnees sont separees en deux tableaux pour calculer la mediane selon les ages et les lignees
+# Puis tout est reuni en un seul plot
+phenoIndivHRM  <- merge.data.frame( x = phenoHeartRateMean, y = dataIndividual, 
+                                  by.x = c( "individual_name", "age"), by.y = c( "name", "age"))
+phenoIndivHRM1 <- phenoIndivHRM[ phenoIndivHRM$age == 1,]
+phenoIndivHRM4 <- phenoIndivHRM[ phenoIndivHRM$age == 4,]
+tab1 <- tapply( phenoIndivHRM1$value, as.factor( phenoIndivHRM1$strain_number), median)
+tab4 <- tapply( phenoIndivHRM4$value, as.factor( phenoIndivHRM4$strain_number), median)
+cbind14 <- cbind.data.frame( as.factor( rownames( tab1)), as.numeric( tab1), as.numeric( tab4))
+colnames( cbind14) <- c("strain", "value1", "value4")
+cbind14narm <- na.omit(cbind14)
+# dotplot pour chaque lignee avec la valeur mediane pour age = 1 et age = 4
+plotHRMstrain41 <- ggplot( cbind14narm) +
+                   geom_point( aes( x = reorder( strain, value4), y = value4), col = "blue") +
+                   geom_point( aes( x = strain, y = value1), col = "red") +
+                   xlab( "Strains") +
+                   ylab( "HeartRate Mean median value") +
+                   ggtitle( "Distribution of median values of \n 1-week old based on 4") +
+                   theme( plot.title = element_text( hjust = 0.5),
+                          axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) 
+#                          legend.position="topright")
+
+#Nombre de lignees pour lesquelles mediane1 < mediane4
+cat( "Number of strains with missing values for one or both ages :", nrow(cbind14)-nrow(cbind14narm), 
+     "\nNumber of strains where median of HeartRate Mean is lower for 1 than 4-week old drosophiles :", 
+     sum( cbind14narm$value1 < cbind14narm$value4), ", ie", 
+     round(( sum( cbind14narm$value1 < cbind14narm$value4)) / ncol( cbind14narm), digits = 2), " %")
+
+#Affichage du plot
+plotHRMstrain41 
+```
+
+It seems that most drosophila strains tends to have around same values for Heartrate Mean at 4week-olds, and 26 of them have lower HeartRate Mean at 4 weeks than 1 week.  

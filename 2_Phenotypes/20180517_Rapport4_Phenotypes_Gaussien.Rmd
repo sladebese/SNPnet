@@ -1,0 +1,132 @@
+---
+title: "Rapport_Analysis"
+author: "sl"
+date: "17/05/2018"
+output: 
+  html_document:
+    toc : true
+    toc_float : true
+    toc_depth : 5
+    theme : cerulean
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+list.of.packages <- c( "gridExtra", "kableExtra", "ggrepel", "knitr", "DT", "pheatmap")
+new.packages <- list.of.packages[!( list.of.packages %in% installed.packages()[,"Package"])]
+if( length( new.packages)) install.packages( new.packages)
+library( kableExtra)
+library( gridExtra)
+library( ggplot2)
+library( knitr)
+library( ggrepel)
+library( reshape2)
+library( DT)
+library( pheatmap)
+
+#Cleaning 
+rm( list.of.packages, new.packages)
+```
+
+```{r loadChunks, echo = FALSE, include = FALSE}
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/DATA.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/strainsData.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/doublon.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/filter.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/preparation.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/phenotypes.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/pheno_analysis_gaussien.R")
+read_chunk("~/workspace/AnalysisSteph/2_Phenotypes/Input/summary.R")
+
+dirMain <- path.expand("~")
+dirOutput <- file.path( dirMain, "workspace/AnalysisSteph")
+```
+
+## Presentation 
+
+Le travail qui suit s'appuie sur cinq fichiers issus du projet SnpNet :   
+- strain.csv : nom des lignées utilisées et informe si elles sont contrôles ou non.  
+- individual.csv : informations de chaque drosophile : name, id, date, age, sex, user, strain_number.   
+- phenotype_data.csv : données phénotypiques obtenues à partir d'un logiciel et de films des coeurs disséqués.     
+- phenotype_data.csv_control_nooutliers.csv : même fichier que phenotype_data.csv, à ce près que les individus considérés comme outliers ont été retirés.   
+- phenotype_data.csv_date_correction.csv : correction journalière déduite des contrôles à appliquer aux données phénotypiques (à voir si on l'utilisera).   
+ 
+##Construction d'un dataframe complet pour les analyses
+
+Le contenu de presque tous les fichiers cités au-dessus a été compilé pour donner un dataframe au format long le plus complet possible quant aux drosophiles étudiées et aux valeurs recueillies. Le fichier phenotype_data.csv n'est pas concerné car on choisit de travailler avec les données sans outliers. Le fichier est stocké sous l'intitulé 01_DATA_raw. Nous ne nous intéressons pas aux données des drosophiles w1118 qui sont les contrôles, on recueille donc uniquement les lignées DGRP dans le fichier 02_DATA_dgrp
+
+```{r DATA, echo = FALSE, include = FALSE}
+<<DATA>>
+```
+
+Le barplot ci-dessous représente le nombre d'individus par lignée et par âge. 
+
+```{r strainsindata, echo = FALSE}
+<<strainsData>>
+```
+
+### Reproductions
+
+Quelques lignées ont été répliquées. Excepté pour les lignées wild type, seul un des réplicat sera conservé : celui avec le plus grand nombre d'individus, et dans un cas d'égalité, celui dont la date d'expérimentation sera la plus proche de celle du deuxième âge étudié. Un dataframe "DATA_QC" est créé et les lignées qui ne seront finalement pas analysées sont indiquées par "dup" dans la colonne "QC".
+
+Le graphique ci-dessous montre les différents réplicats dans le lot d'individus étudiés, on peut voir qu'il s'agit exclusivement de duplicats. Le second barplot montre la nouvelle allure des individus par lignées lorsque les duplicats sont retirés. 
+
+```{r doublon, echo = FALSE}
+<<doublon>>
+```
+
+
+### Nombre de drosophiles suffisant
+
+Pour chacun des phénotypes, seulement les lignées contenant plus de 8 drosophiles à chaque âge sont analysées. Si un phénotype n'a plus un nombre suffisant de lignées, il n'est pas analysé.   
+Le problème est que certaines lignées n'ont pas assez de drosophiles peu importe le phénotype (lignées en dessous de la ligne pointillée sur le graphique précédent). Ces lignées sont indiquées par "under" dans la colonne "QC2" de "DATA_QC". Ce dataframe est visible dans le fichier exporté 03_DATA_FilterStrains.
+
+```{r filter, echo = FALSE}
+<<filter>>
+```
+
+Six lignées ont été retirées. Les données sont réorganisées pour obtenir des graphiques sans "trous". En effet, ce même barplot sera présent au début de l'analyse de chaque phénotype, ce qui facilitera l'observation des lignées retirées pour chacun des phénotypes. 
+
+Voici la distribution des individus par lignées et par âge pour les 163 lignées restantes après retrait des individus "dup" et "under". Ces données sont regroupées dans un nouveau dataframe qui sera la base de nos analyse : "DATA_Analysis" (visibles dans le fichier 04_DATA_Analysis). 
+
+```{r preparation, echo = FALSE}
+<<preparation>>
+```
+
+### Distribution des individus par phénotype
+
+La distribution des individus par phénotype et par âge aide à visualiser quelles données ont été les plus dures à obtenir. Certaines jugées incorrectes (dues à une erreur technique par exemple) au premier regard ont été supprimées du fichier phenotype_data.csv dans une étude préalable.  
+
+On voit que le phénotype Pcent_DI_sup3 n'est plus représenté par aucun individu. Etant donné le faible nombre d'invididus pour certaines lignées, telle que Pcent_Long_DI, il serait statistiquement faux de les analyser. 
+
+```{r phenotypes, echo = FALSE}
+<<phenotypes>>
+```
+
+## Analyses
+
+Les données de "DATA_Analysis" sont fractionnées selon chacun des phénotypes. A nouveau, nous ne souhaitons garder que les lignées ayant un minimum de 8 drosophiles à chaque âge. Un nouveau dataframe est créé pour chaque phénotype, nommé "DATA_Nomphénotype", contenant les données après filtre des lignées. Les phénotypes avec moins de 80% des lignées restantes ne sont pas analysés.
+
+Dans le cadre de l'analyse des données, la mad (mediane absolute deviation) est utilisée. La mad est à la médiane ce que le sd est à la moyenne, elle donne donc une information sur la dispersion des données. De manière plus concrête, voici comment elle est calculée :   
+1. La médiane d'un ensemble de données est déterminée :  $m$.    
+2. La différence de la valeur de chaque individu avec la médiane est ensuite calculée : $xi-m$.    
+3. On prend la valeur absolue des différences et on détermine leur médiane : $MED([ |xi-m| ]_{i=1:n})$.    
+Cette dernière valeur est la mad. En toute logique, elle a le même avantage que la médiane de ne pas tenir compte des outliers.    
+<br>   
+
+Deux indicateurs sont définis par la suite : l'indicateur de médiane $I_M$ et l'indicateur de variation $I_V$ définis tels quel : 
+- $I_M = mediane_4 - mediane_1$
+- $I_V = mad_4 - mad_1$
+
+```{r DATAsubsets, echo = FALSE, warning=FALSE, results="asis"}
+<<phenoPlots>>
+<<summary>>
+```
+
+
+
+
