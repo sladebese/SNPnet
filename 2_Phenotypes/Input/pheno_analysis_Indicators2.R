@@ -13,6 +13,9 @@ nameOutliersIM <- c()
 nameOutliersMad1 <- c()
 nameOutliersMad4 <- c()
 nameOutliersIV <- c()
+rho_median <- data.frame()
+rho_mad <- data.frame()
+rho_IMIV <- data.frame()
 diffIM <- data.frame( "strain_number" = unique( DATA_analysis$strain_number)) 
 diffmedian_extrems1 <- data.frame( "strain_number" = unique( DATA_analysis$strain_number)) 
 diffmedian_extrems4 <- data.frame( "strain_number" = unique( DATA_analysis$strain_number)) 
@@ -125,6 +128,7 @@ for ( namePheno in phenotypes){
                  xlab( "Age") +
                  ylab( "Phenotype values") +
                  ggtitle( paste( namePheno, "\nphenotype values between ages")) +
+                 labs( fill = "Age") +
                  theme( plot.title = element_text( hjust = 0.5)) 
     print( plotpheno14) 
     
@@ -419,7 +423,8 @@ for ( namePheno in phenotypes){
     cat( "<br>Coefficient de correlation de Spearman entre médiane age 1 et médiane âge 4.")
     spearman <- cor.test( x=dfIM$median1, y = dfIM$median4, method = "spearman")
     print( spearman)
-    
+    rho_median[ which( phenotypes == namePheno), "phenotype"] <- namePheno
+    rho_median[ which( phenotypes == namePheno), "rho"] <- spearman$estimate
   
     
     cat("<br><H5> INDICATEUR DE VARIATION </H5><br>")   #We will do exactly same thing than for median, except there 
@@ -698,6 +703,8 @@ for ( namePheno in phenotypes){
     spearman2 <- cor.test( x = dfIV_no_outliers$mad1/dfIV_no_outliers$median1, 
                            y = dfIV_no_outliers$mad4/dfIV_no_outliers$median4, method = "spearman")
     print( spearman2)
+    rho_mad[ which( phenotypes == namePheno), "phenotype"] <- namePheno
+    rho_mad[ which( phenotypes == namePheno), "rho"] <- spearman2$estimate
     
     
     cat( "<br><H5> CORRELATION IM IV </H5><br>")  # Aim of this part is to see if there is any correlation 
@@ -721,6 +728,9 @@ for ( namePheno in phenotypes){
     cat( "<br>Coefficient de correlation de Spearman pour la correlation médiane mad.")
     spearman3 <- cor.test( x=mgIMIV$IM, y = mgIMIV$IV, method = "spearman")
     print( spearman3)
+    rho_IMIV[ which( phenotypes == namePheno), "phenotype"] <- namePheno
+    rho_IMIV[ which( phenotypes == namePheno), "rho"] <- spearman3$estimate
+    
     
     
     # Splicing with the next phenotype by a black line and spaces
@@ -793,9 +803,8 @@ write.csv( execution_dataframe, file = "~/workspace/AnalysisSteph/2_Phenotypes/O
 # nameOutliersMed4 : names of "extrem strains" for the median and for age 4
 # phenotypes : character vector with names of all phenotypes 
 # RemainingStrain : Percent of remaining strains for all phenotypes, in order of "phenotypes"
-
-
-
+# rho_median :
+# rho_mad  :
     
      
      

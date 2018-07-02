@@ -13,7 +13,7 @@ plotbdTabPhenoAge  <- ggplot( tabPheno, aes( fill=age, y=freq, x=phenotype)) +
                       ylab( "Number of drosophila") +
                       ggtitle( "Number of drosophila by phenotype and age") +
                       theme( plot.title = element_text( hjust = 0.5),
-                             axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+                             axis.text.x = element_text(angle = 60, hjust = 1, size = 8))
 plotbdTabPhenoAge 
 
 #Cleaning : no cleaning to do 
